@@ -9,6 +9,7 @@ from sklearn.metrics import auc
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_curve
 from skimage import measure
+from skimage.transform import resize
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,8 +46,8 @@ def imagefiles2arrs(filenames):
         images_arr = np.zeros((len(filenames), img_shape[0], img_shape[1], img_shape[2]), dtype=np.float32)
     elif len(img_shape)==2:
         images_arr = np.zeros((len(filenames), img_shape[0], img_shape[1]), dtype=np.float32)
-    
-    for file_index in xrange(len(filenames)):
+
+    for file_index in range(len(filenames)):
         img = Image.open(filenames[file_index])
         images_arr[file_index] = np.asarray(img).astype(np.float32)
     
@@ -94,13 +95,13 @@ def discriminator_shape(n, d_out_shape):
 def input2discriminator(real_img_patches, real_vessel_patches, fake_vessel_patches, d_out_shape):
     real=np.concatenate((real_img_patches,real_vessel_patches), axis=3)
     fake=np.concatenate((real_img_patches,fake_vessel_patches), axis=3)
-    
+
     d_x_batch=np.concatenate((real,fake), axis=0)
-    
+
     # real : 1, fake : 0
     d_y_batch=np.ones(discriminator_shape(d_x_batch.shape[0], d_out_shape))
     d_y_batch[real.shape[0]:,...] = 0
-    
+
     return d_x_batch, d_y_batch
  
 def input2gan(real_img_patches, real_vessel_patches, d_out_shape):    
@@ -110,10 +111,10 @@ def input2gan(real_img_patches, real_vessel_patches, d_out_shape):
     return g_x_batch, g_y_batch
     
 def print_metrics(itr, **kargs):
-    print "*** Round {}  ====> ".format(itr),
+    print("*** Round {}  ====> ".format(itr))
     for name, value in kargs.items():
         print ( "{} : {}, ".format(name, value)),
-    print ""
+    print("")
     sys.stdout.flush()
 
 class TrainBatchFetcher(Iterator):
@@ -134,9 +135,10 @@ def AUC_ROC(true_vessel_arr, pred_vessel_arr, save_fname):
     """
     Area under the ROC curve with x axis flipped
     """
-    fpr, tpr, _ = roc_curve(true_vessel_arr, pred_vessel_arr)
+
+    fpr, tpr, _ = roc_curve(true_vessel_arr.astype(np.uint8), pred_vessel_arr)
     save_obj({"fpr":fpr, "tpr":tpr}, save_fname)
-    AUC_ROC=roc_auc_score(true_vessel_arr.flatten(), pred_vessel_arr.flatten())
+    AUC_ROC=roc_auc_score(true_vessel_arr.flatten().astype(np.uint8), pred_vessel_arr.flatten())
     return AUC_ROC
 
 def plot_AUC_ROC(fprs,tprs,method_names,fig_dir):
@@ -145,15 +147,16 @@ def plot_AUC_ROC(fprs,tprs,method_names,fig_dir):
     matplotlib.rc('font', **font)
 
     # sort the order of plots manually for eye-pleasing plots
-    colors=['r','b','y','g','#7e7e7e','m','k','c'] if len(fprs)==8 else ['r','y','m','k','g']
-    indices=[6,2,5,3,4,7,1,0] if len(fprs)==8 else [3,1,2,4,0] 
+    colors=['r','b','y','g','#7e7e7e','m','k','c','#abcdef']
+    #indices=[6,2,5,3,4,7,1,0] if len(fprs)==8 else [3,1,2,4,0]
+    indices = [i for i in range(len(method_names))]
     
     # print auc  
-    print "****** ROC AUC ******"
-    print "CAVEAT : AUC of V-GAN with 8bit images might be lower than the floating point array (check <home>/pretrained/auc_roc*.npy)"
+    print("****** ROC AUC ******")
+    print("CAVEAT : AUC of V-GAN with 8bit images might be lower than the floating point array (check <home>/pretrained/auc_roc*.npy)")
     for index in indices:
         if method_names[index]!='CRFs' and method_names[index]!='2nd_manual':
-            print "{} : {:04}".format(method_names[index],auc(fprs[index],tprs[index]))
+            print("{} : {:.4f}".format(method_names[index],auc(fprs[index],tprs[index])))
     
     # plot results
     for index in indices:
@@ -179,19 +182,22 @@ def plot_AUC_PR(precisions, recalls, method_names, fig_dir):
     matplotlib.rc('font', **font)
     
     # sort the order of plots manually for eye-pleasing plots
-    colors=['r','b','y','g','#7e7e7e','m','k','c'] if len(precisions)==8 else ['r','y','m','k','g']
-    indices=[6,2,5,3,4,7,1,0] if len(precisions)==8 else [3,1,2,4,0] 
+    colors = ['r', 'b', 'y', 'g', '#7e7e7e', 'm', 'k', 'c', '#abcdef']
+    # indices=[6,2,5,3,4,7,1,0] if len(fprs)==8 else [3,1,2,4,0]
+    indices = [i for i in range(len(method_names))]
 
     # print auc  
-    print "****** Precision Recall AUC ******"
-    print "CAVEAT : AUC of V-GAN with 8bit images might be lower than the floating point array (check <home>/pretrained/auc_pr*.npy)"
+    print("****** Precision Recall AUC ******")
+    print("CAVEAT : AUC of V-GAN with 8bit images might be lower than the floating point array (check <home>/pretrained/auc_pr*.npy)")
     for index in indices:
         if method_names[index]!='CRFs' and method_names[index]!='2nd_manual':
-            print "{} : {:04}".format(method_names[index],auc(recalls[index],precisions[index]))
+            print("{} : {:.4f}".format(method_names[index],auc(recalls[index],precisions[index])))
     
     # plot results
     for index in indices:
-        if method_names[index]=='2nd_manual':
+        if method_names[index]=='CRFs':
+            plt.plot(recalls[index],precisions[index],colors[index]+'*',label=method_names[index].replace("_"," "))
+        elif method_names[index]=='2nd_manual':
             plt.plot(recalls[index],precisions[index],colors[index]+'*',label='Human')
         else:
             plt.plot(recalls[index],precisions[index],colors[index],label=method_names[index].replace("_"," "))
@@ -209,7 +215,7 @@ def AUC_PR(true_vessel_img, pred_vessel_img, save_fname):
     """
     Precision-recall curve
     """
-    precision, recall, _ = precision_recall_curve(true_vessel_img.flatten(), pred_vessel_img.flatten(),  pos_label=1)
+    precision, recall, _ = precision_recall_curve(true_vessel_img.flatten().astype(np.uint8), pred_vessel_img.flatten(),  pos_label=1)
     save_obj({"precision":precision, "recall":recall}, save_fname)
     AUC_prec_rec = auc(recall, precision)
     return AUC_prec_rec
@@ -290,7 +296,51 @@ def pad_imgs(imgs, img_size):
     padded[:,(target_h-img_h)//2:(target_h-img_h)//2+img_h,(target_w-img_w)//2:(target_w-img_w)//2+img_w,...]=imgs
     
     return padded
-    
+
+def rescale_imgs(imgs, img_size):
+    img_h, img_w = imgs.shape[1], imgs.shape[2]
+    target_h, target_w = img_size[1], img_size[1]
+    rescaled = []
+    if len(imgs.shape) == 4:
+        d = imgs.shape[3]
+        for img in imgs:
+            rescaled.append(resize(img, (target_h, target_w), mode='constant', anti_aliasing=False))
+            #plt.imshow(rescaled[0].astype(np.uint8))
+            #plt.show()
+            #rescaled=np.zeros((imgs.shape[0],target_h, target_w,d))
+    elif len(imgs.shape)==3:
+        for img in imgs:
+            rescaled.append(resize(img, (target_h, target_w), mode='constant', anti_aliasing=False))
+            #plt.imshow((rescaled[0]*255).astype(np.uint8),cmap='gray')
+            #plt.show()
+            #rescaled=np.zeros((imgs.shape[0],img_size[0],img_size[1]))
+
+    #rescaled[:,(target_h-img_h)//2:(target_h-img_h)//2+img_h,(target_w-img_w)//2:(target_w-img_w)//2+img_w,...]=imgs
+    rescaled = np.array(rescaled)
+
+    return rescaled
+
+def rescale_to_original(imgs, ori_shape):
+    pred_shape=imgs.shape
+    assert len(pred_shape)<4
+
+    if ori_shape == pred_shape:
+        return imgs
+    else:
+        if len(imgs.shape)>2:
+            ori_h,ori_w =ori_shape[1],ori_shape[2]
+            #pred_h,pred_w=pred_shape[1],pred_shape[2]
+            images = []
+            for img in imgs:
+                images.append(resize(img, (ori_h, ori_w), mode='constant', anti_aliasing=False))
+            return np.array(images)
+            #return imgs[:,(pred_h-ori_h)//2:(pred_h-ori_h)//2+ori_h,(pred_w-ori_w)//2:(pred_w-ori_w)//2+ori_w]
+        else:
+            ori_h,ori_w =ori_shape[0],ori_shape[1]
+            return np.array(resize(imgs, (ori_h, ori_w), mode='constant', anti_aliasing=False))
+            #pred_h,pred_w=pred_shape[0],pred_shape[1]
+            #return imgs[(pred_h-ori_h)//2:(pred_h-ori_h)//2+ori_h,(pred_w-ori_w)//2:(pred_w-ori_w)//2+ori_w]
+
 def random_perturbation(imgs):
     for i in range(imgs.shape[0]):
         im=Image.fromarray(imgs[i,...].astype(np.uint8))
@@ -310,14 +360,17 @@ def get_imgs(target_dir, augmentation, img_size, dataset, mask=False):
     elif dataset=='STARE':
         img_files, vessel_files, mask_files = STARE_files(target_dir)
         
-    # load images    
+    # load images
     fundus_imgs=imagefiles2arrs(img_files)
     vessel_imgs=imagefiles2arrs(vessel_files)/255
+    # fundus_imgs=rescale_imgs(fundus_imgs, img_size)
+    # vessel_imgs=rescale_imgs(vessel_imgs, img_size)
     fundus_imgs=pad_imgs(fundus_imgs, img_size)
     vessel_imgs=pad_imgs(vessel_imgs, img_size)
     assert(np.min(vessel_imgs)==0 and np.max(vessel_imgs)==1)
     if mask:
         mask_imgs=imagefiles2arrs(mask_files)/255
+        # mask_imgs=rescale_imgs(mask_imgs, img_size)
         mask_imgs=pad_imgs(mask_imgs, img_size)
         assert(np.min(mask_imgs)==0 and np.max(mask_imgs)==1)
 
@@ -330,14 +383,14 @@ def get_imgs(target_dir, augmentation, img_size, dataset, mask=False):
         flipped_vessels=vessel_imgs[:,:,::-1]
         all_fundus_imgs.append(flipped_imgs)
         all_vessel_imgs.append(flipped_vessels)
-        for angle in range(3,360,3):  # rotated imgs 3~360
+        for angle in range(10,360,10):  # rotated imgs 3~360
             all_fundus_imgs.append(random_perturbation(rotate(fundus_imgs, angle, axes=(1, 2), reshape=False)))
             all_fundus_imgs.append(random_perturbation(rotate(flipped_imgs, angle, axes=(1, 2), reshape=False)))
             all_vessel_imgs.append(rotate(vessel_imgs, angle, axes=(1, 2), reshape=False))
             all_vessel_imgs.append(rotate(flipped_vessels, angle, axes=(1, 2), reshape=False))
         fundus_imgs=np.concatenate(all_fundus_imgs,axis=0)
         vessel_imgs=np.round((np.concatenate(all_vessel_imgs,axis=0)))
-    
+
     # z score with mean, std of each image
     n_all_imgs=fundus_imgs.shape[0]
     for index in range(n_all_imgs):

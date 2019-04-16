@@ -31,7 +31,7 @@ for dataset in datasets:
             gt_vessels_in_mask, pred_vessels_in_mask = utils.pixel_values_in_mask(gt_vessels, pred_vessels , masks)
              
             # visualize results
-            if "V-GAN" in result or "DRIU" in result or "1st_manual" in result:
+            if "V-GAN" in result or "pixel" in result or "patch1" in result or "patch2" in result or "image" in result or "DRIU" in result or "1st_manual" in result:
                 test_dir=testdata.format(os.path.basename(dataset))
                 ori_imgs=utils.load_images_under_dir(test_dir)
                 vessels_dir=vessels_out.format(os.path.basename(dataset),os.path.basename(result))
@@ -44,6 +44,7 @@ for dataset in datasets:
                                                                   np.expand_dims(masks[index,...], axis=0), 
                                                                   flatten=False)*255
                     ori_imgs[index,...][np.squeeze(thresholded_vessel, axis=0)==0]=(0,0,0)
+                    filenames[index] = os.path.splitext(filenames[index])[0]+".png"
                     Image.fromarray(ori_imgs[index,...].astype(np.uint8)).save(os.path.join(vessels_dir,os.path.basename(filenames[index])))
                 
                 # compare with the ground truth
@@ -57,9 +58,9 @@ for dataset in datasets:
             # skip the ground truth
             if "1st_manual" not in result:
                 # print metrics
-                print "-- {} --".format(os.path.basename(result))
-                print "dice coefficient : {}".format(utils.dice_coefficient(gt_vessels,pred_vessels, masks))
-                print "f1 score : {}, accuracy : {}, specificity : {}, sensitivity : {}".format(*utils.misc_measures(gt_vessels,pred_vessels, masks))
+                print("-- {} --".format(os.path.basename(result)))
+                print("dice coefficient : {0:.4f}".format(utils.dice_coefficient(gt_vessels,pred_vessels, masks)))
+                print("f1 score : {0:.4f}, accuracy : {1:.4f}, specificity : {2:.4f}, sensitivity : {3:.4f}".format(*utils.misc_measures(gt_vessels,pred_vessels, masks)))
 
                 # compute false positive rate, true positive graph
                 method=os.path.basename(result)
@@ -82,6 +83,6 @@ for dataset in datasets:
     curve_dir=curves_out.format(os.path.basename(dataset))
     if not os.path.isdir(curve_dir):
         os.makedirs(curve_dir)
-   
+
     utils.plot_AUC_ROC(fprs, tprs, methods, curve_dir)
     utils.plot_AUC_PR(precs, recalls, methods, curve_dir)    
