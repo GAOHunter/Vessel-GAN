@@ -128,10 +128,7 @@ def discriminator_pixel(g, img_size, n_filters, init_lr, tensorboard, name='d'):
     img_height, img_width = img_size[0], img_size[1]
     padding = 'same'
 
-    g_inputs = g.get_layer('g_inputs').output
-    print(g_inputs)
-    inputs = K.expand_dims(g_inputs, axis=-1)
-    inputs = K.reshape(inputs, shape=(-1, img_height, img_width, img_ch+out_ch))
+    inputs = Input((img_height, img_height, img_ch+out_ch), name='d_inputs')
 
 
     #concat1 = Concatenate(axis=3)([inputs, g.get_layer('outputs').output])
