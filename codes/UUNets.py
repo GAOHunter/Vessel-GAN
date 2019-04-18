@@ -130,9 +130,8 @@ def discriminator_pixel(g, img_size, n_filters, init_lr, tensorboard, name='d'):
 
     inputs = Input((img_height, img_height, img_ch+out_ch), name='d_inputs')
 
-
-    #concat1 = Concatenate(axis=3)([inputs, g.get_layer('outputs').output])
-    conv1 = Conv2D(n_filters, (k, k), padding=padding)(inputs)
+    concat1 = Concatenate(axis=3)([inputs, g.get_layer('outputs').output])
+    conv1 = Conv2D(n_filters, (k, k), padding=padding)(concat1)
     conv1 = GroupNormalization(groups=group, axis=3, scale=False)(conv1)
     # conv1 = BatchNormalization(scale=False, axis=3)(conv1)
     conv1 = Activation('relu')(conv1)
@@ -207,7 +206,7 @@ def discriminator_pixel(g, img_size, n_filters, init_lr, tensorboard, name='d'):
 
     outputs = Conv2D(out_ch, (1, 1), padding=padding, activation='sigmoid')(conv7)
 
-    d = Model(inputs, outputs, name=name)
+    d = Model([g.get_layer('g_inputs').output, inputs], outputs, name=name)
 
     def d_loss(y_true, y_pred):
         L = objectives.binary_crossentropy(K.batch_flatten(y_true),
@@ -528,7 +527,7 @@ def GAN(g, d, img_size, n_filters_g, n_filters_d, alpha_recip, init_lr, tensorbo
     fake_vessel = g(fundus)
     fake_pair = Concatenate(axis=3)([fundus, fake_vessel])
 
-    gan = Model([fundus, vessel], d(fake_pair), name=name)
+    gan = Model([fundus, vessel], d([fundus, fake_pair]), name=name)
 
     def gan_loss(y_true, y_pred):
         y_true_flat = K.batch_flatten(y_true)
