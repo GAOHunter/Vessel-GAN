@@ -1,6 +1,6 @@
 import numpy as np
-# from model import GAN, discriminator_pixel, discriminator_image, discriminator_patch1, discriminator_patch2, generator, discriminator_dummy
-from UUNets import GAN, discriminator_pixel, discriminator_image, discriminator_patch1, discriminator_patch2, generator, discriminator_dummy
+import time
+from model import GAN, discriminator_pixel, discriminator_image, discriminator_patch1, discriminator_patch2, generator, discriminator_dummy
 import utils
 import os
 from PIL import Image
@@ -8,7 +8,7 @@ import argparse
 import tensorflow as tf
 from keras import backend as K
 from keras.callbacks import TensorBoard
-
+from keras.utils import generic_utils
 
 # arrange arguments
 parser=argparse.ArgumentParser()
@@ -76,7 +76,7 @@ print("finished setting dataset")
 
 # set training and validation dataset
 print("setting training dataset...")
-train_imgs, train_vessels =utils.get_imgs(train_dir, augmentation=False, img_size=img_size, dataset=dataset)
+train_imgs, train_vessels =utils.get_imgs(train_dir, augmentation=True, img_size=img_size, dataset=dataset)
 train_vessels=np.expand_dims(train_vessels, axis=3)
 n_all_imgs=train_imgs.shape[0]
 n_train_imgs=int((1-val_ratio)*n_all_imgs)
@@ -91,7 +91,7 @@ print("setting test dataset...")
 test_imgs, test_vessels, test_masks=utils.get_imgs(test_dir, augmentation=False, img_size=img_size, dataset=dataset, mask=True)
 print("finish setting test dataset")
 
-log_dir = '../log/{}-{}-UUNets/'.format(dataset,FLAGS.discriminator)
+log_dir = '../log/{}-{}/'.format(dataset,FLAGS.discriminator)
 if not os.path.isdir(log_dir):
     os.makedirs(log_dir)
 
@@ -102,21 +102,28 @@ callback = TensorBoard(log_dir)
 g = generator(img_size, n_filters_g, callback)
 g.summary()
 if FLAGS.discriminator=='pixel':
-    d, d_out_shape = discriminator_pixel(g, img_size, n_filters_d,init_lr, callback)
+    d1, d_out_shape = discriminator_pixel(img_size, n_filters_d,init_lr, callback)
+    # d2, d_out_shape = discriminator_pixel(img_size, n_filters_d, init_lr, callback)
 elif FLAGS.discriminator=='patch1':
-    d, d_out_shape = discriminator_patch1(img_size, n_filters_d,init_lr, callback)
+    d1, d_out_shape = discriminator_patch1(img_size, n_filters_d,init_lr, callback)
+    # d2, d_out_shape = discriminator_patch1(img_size, n_filters_d, init_lr, callback)
 elif FLAGS.discriminator=='patch2':
-    d, d_out_shape = discriminator_patch2(img_size, n_filters_d,init_lr, callback)
+    d1, d_out_shape = discriminator_patch2(img_size, n_filters_d,init_lr, callback)
+    # d2, d_out_shape = discriminator_patch2(img_size, n_filters_d, init_lr, callback)
 elif FLAGS.discriminator=='image':
-    d, d_out_shape = discriminator_image(img_size, n_filters_d,init_lr, callback)
+    d1, d_out_shape = discriminator_image(img_size, n_filters_d,init_lr, callback)
+    # d2, d_out_shape = discriminator_image(img_size, n_filters_d,init_lr, callback)
 else:
-    d, d_out_shape = discriminator_dummy(img_size, n_filters_d,init_lr)
+    d1, d_out_shape = discriminator_dummy(img_size, n_filters_d,init_lr)
+    # d2, d_out_shape = discriminator_dummy(img_size, n_filters_d, init_lr)
 
-print(d_out_shape)
-d.summary()
+d1.summary()
+# d2.summary()
 
-gan=GAN(g,d,img_size, n_filters_g, n_filters_d,alpha_recip, init_lr, callback)
-gan.summary()
+gan1=GAN(g,d1,img_size, n_filters_g, n_filters_d,alpha_recip, init_lr, callback)
+gan1.summary()
+# gan2=GAN(g,d2,img_size, n_filters_g, n_filters_d,alpha_recip, init_lr, callback)
+# gan2.summary()
 
 # start training
 scheduler=utils.Scheduler(n_train_imgs//batch_size, n_train_imgs//batch_size, schedules, init_lr) if alpha_recip>0 else utils.Scheduler(0, n_train_imgs//batch_size, schedules, init_lr)
@@ -133,40 +140,63 @@ def write_log(callback, names, logs, batch_no):
         callback.writer.flush()
 
 for n_round in range(n_rounds):
-    print('Epoch {0}/{1}'.format(n_round+1, n_rounds))
-    # train D
-    dsteps = scheduler.get_dsteps()
-    for batch_no in range(dsteps):
+    # train D1, D2
+    steps = n_train_imgs//batch_size
+    progbar = generic_utils.Progbar(n_train_imgs)
+    start = time.time()
+    for batch_no in range(steps):
         real_imgs, real_vessels = next(train_batch_fetcher)
-        d_x_batch, d_y_batch = utils.input2discriminator(real_imgs, real_vessels, g.predict(real_imgs,batch_size=batch_size), d_out_shape)
-        real = np.concatenate((real_imgs, real_imgs),axis=0)
-        d_loss = d.train_on_batch([real,d_x_batch], d_y_batch)
-        write_log(callback, ['d_loss'], d_loss, batch_no)
-        print('batch:[{0}/{1}] d_loss: {2:.3f} d_acc: {3:.3f}%'.format(batch_no + 1, dsteps,d_loss[0],d_loss[1] * 100))
+        fake_vessels = g.predict(real_imgs,batch_size=batch_size)
+        d1_x_batch, d1_y_batch = utils.input2discriminator(real_imgs, real_vessels, fake_vessels, d_out_shape, train_real=True)
+        # d2_x_batch, d2_y_batch = utils.input2discriminator(real_imgs, real_vessels,fake_vessels, d_out_shape, train_real=False)
+        d1_loss = d1.train_on_batch(d1_x_batch, d1_y_batch)
+        # d2_loss = d2.train_on_batch(d2_x_batch, d2_y_batch)
+        write_log(callback, ['d1_loss'], d1_loss, batch_no)
+        # write_log(callback, ['d2_loss'], d2_loss, batch_no)
+        # print('batch:[{0}/{1}] d_loss: {2:.3f} d_acc: {3:.3f}%'.format(batch_no + 1, steps,d_loss[0],d_loss[1] * 100))
 
     # train G (freeze discriminator)
-    utils.make_trainable(d, False)
-    gsteps = scheduler.get_gsteps()
-    for batch_no in range(gsteps):
-        real_imgs, real_vessels = next(train_batch_fetcher)
-        g_x_batch, g_y_batch=utils.input2gan(real_imgs, real_vessels, d_out_shape)
-        g_loss = gan.train_on_batch(g_x_batch, [real_imgs,g_y_batch])
-        write_log(callback, ['g_loss'],g_loss, batch_no)
-        print('batch:[{0}/{1}] g_loss: {2:.3f} g_acc: {3:.3f}%'.format(batch_no + 1, gsteps,g_loss[0],g_loss[1] * 100))
-        # print('batch:[{0}/{1}] d_loss: {2:.3f} d_acc: {3:.3f}% g_loss: {4:.3f} g_acc: {5:.3f}%'.format(batch_no + 1, steps, d_loss[0], d_loss[1]*100, g_loss[0], g_loss[1] * 100))
+        utils.make_trainable(d1, False)
+        # utils.make_trainable(d2, False)
+    # gsteps = scheduler.get_gsteps()
+    # for batch_no in range(gsteps):
+    #     real_imgs, real_vessels = next(train_batch_fetcher)
+        g1_x_batch, g1_y_batch=utils.input2gan(real_imgs, real_vessels, d_out_shape, train_real=True)
+        # g2_x_batch, g2_y_batch=utils.input2gan(real_imgs, real_vessels, d_out_shape, train_real=False)
+        g1_loss = gan1.train_on_batch(g1_x_batch, g1_y_batch)
+        # g2_loss = gan2.train_on_batch(g2_x_batch, g2_y_batch)
+        # loss = (g2_loss[0]+g1_loss[0])/2
+        # acc = (g1_loss[1]+g2_loss[1])/2
+        # g_loss = [loss, acc]
+        write_log(callback, ['g_loss'],g1_loss, batch_no)
+        #print('batch:[{0}/{1}] g_loss: {2:.3f} g_acc: {3:.3f}%'.format(batch_no + 1, steps,g_loss[0],g_loss[1] * 100))
+        #print('batch:[{0}/{1}] d_loss: {2:.3f} d_acc: {3:.3f}% g_loss: {4:.3f} g_acc: {5:.3f}%'.format(batch_no + 1, steps, d_loss[0], d_loss[1]*100, g_loss[0], g_loss[1] * 100))
 
-    utils.make_trainable(d, True)
+        utils.make_trainable(d1, True)
+        # utils.make_trainable(d2, True)
+
+        progbar.add(batch_size, values=[("Loss_D1", d1_loss[0]), ("Loss_G", g1_loss[0])])
+        # progbar.add(batch_size, values=[("Loss_D1",d1_loss[0]), ("Loss_D2",d2_loss[0]), ("Loss_G", g_loss[0])])
 
     # evaluate on validation set
     if n_round in rounds_for_evaluation:
         # D
-        d_x_test, d_y_test=utils.input2discriminator(val_imgs, val_vessels, g.predict(val_imgs,batch_size=batch_size), d_out_shape)
-        loss, acc=d.evaluate(d_x_test,d_y_test, batch_size=batch_size, verbose=0)
-        utils.print_metrics(n_round+1, loss=loss, acc=acc, type='D')
+        fake_val_vessels = g.predict(val_imgs,batch_size=batch_size)
+        d1_x_test, d1_y_test=utils.input2discriminator(val_imgs, val_vessels, fake_val_vessels, d_out_shape, train_real=True)
+        # d2_x_test, d2_y_test = utils.input2discriminator(val_imgs, val_vessels, fake_val_vessels, d_out_shape, train_real = False)
+        loss1, acc1=d1.evaluate(d1_x_test,d1_y_test, batch_size=batch_size, verbose=0)
+        # loss2, acc2=d2.evaluate(d2_x_test,d2_y_test, batch_size=batch_size, verbose=0)
+        # loss = (loss1 + loss2)/2
+        # acc = (acc1 + acc2) / 2
+        utils.print_metrics(n_round+1, loss=loss1, acc=acc1, type='D')
         # G
-        gan_x_test, gan_y_test=utils.input2gan(val_imgs, val_vessels, d_out_shape)
-        loss,acc=gan.evaluate(gan_x_test,gan_y_test, batch_size=batch_size, verbose=0)
-        utils.print_metrics(n_round+1, acc=acc, loss=loss, type='GAN')
+        gan1_x_test, gan1_y_test=utils.input2gan(val_imgs, val_vessels, d_out_shape, train_real=True)
+        # gan2_x_test, gan2_y_test=utils.input2gan(val_imgs, val_vessels, d_out_shape, train_real=False)
+        loss1,acc1=gan1.evaluate(gan1_x_test,gan1_y_test, batch_size=batch_size, verbose=0)
+        # loss2,acc2=gan2.evaluate(gan2_x_test, gan2_y_test, batch_size=batch_size, verbose=0)
+        # loss = (loss2 + loss1) / 2
+        # acc = (acc1 + acc2) / 2
+        utils.print_metrics(n_round+1, acc=acc1, loss=loss1, type='GAN')
         # save the model and weights with the best validation loss
         
         with open(os.path.join(model_out_dir,"g_{}_{}_{}_{}.json".format(n_round,dataset,FLAGS.discriminator,FLAGS.ratio_gan2seg)),'w') as f:
@@ -175,8 +205,10 @@ for n_round in range(n_rounds):
 
     # update step sizes, learning rates
     scheduler.update_steps(n_round)
-    K.set_value(d.optimizer.lr, scheduler.get_lr())    
-    K.set_value(gan.optimizer.lr, scheduler.get_lr())
+    K.set_value(d1.optimizer.lr, scheduler.get_lr())
+    # K.set_value(d2.optimizer.lr, scheduler.get_lr())
+    K.set_value(gan1.optimizer.lr, scheduler.get_lr())
+    # K.set_value(gan2.optimizer.lr, scheduler.get_lr())
     
     # evaluate on test images
     if n_round in rounds_for_evaluation:    
@@ -191,3 +223,5 @@ for n_round in range(n_rounds):
         segmented_vessel=utils.remain_in_mask(generated, test_masks)
         for index in range(segmented_vessel.shape[0]):
             Image.fromarray((segmented_vessel[index,:,:]*255).astype(np.uint8)).save(os.path.join(img_out_dir,str(n_round)+"_{:02}_segmented.png".format(index+1)))
+
+    print('\nEpoch {}/{}, Time: {}'.format(n_round + 1, n_rounds, time.time() - start))

@@ -31,7 +31,7 @@ for dataset in datasets:
             gt_vessels_in_mask, pred_vessels_in_mask = utils.pixel_values_in_mask(gt_vessels, pred_vessels , masks)
              
             # visualize results
-            if "V-GAN" in result or "pixel" in result or "patch1" in result or "patch2" in result or "image" in result or "DRIU" in result or "1st_manual" in result:
+            if "V-GAN" in result or "CE-FE-GAN" in result or "EXPERIMENT" in result or "DRIU" in result or "1st_manual" in result:
                 test_dir=testdata.format(os.path.basename(dataset))
                 ori_imgs=utils.load_images_under_dir(test_dir)
                 vessels_dir=vessels_out.format(os.path.basename(dataset),os.path.basename(result))

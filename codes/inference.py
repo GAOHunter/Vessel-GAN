@@ -11,28 +11,28 @@ datasets=["DRIVE","STARE"]
 # discriminator = "pixel"
 # discriminator = "patch1"
 # discriminator = "patch2"
-discriminator = "image"
+# discriminator = "image"
 fundus_dir="../data/{}/test/images/"
 mask_dir="../data/{}/test/mask/"
 # out_dir="../inference_outputs/{}"
-out_dir="../inference_outputs/{}-{}"
+out_dir="../inference_outputs/{}"
 
 
-# f_model="../pretrained/{}_best.json"
-# f_weights="../pretrained/{}_best.h5"
+f_model="../pretrained/{}_best.json"
+f_weights="../pretrained/{}_best.h5"
 #
-f_model="../pretrained/g_[0-9]_{}_{}_10.json"
-f_weights="../pretrained/g_[0-9]_{}_{}_10.h5"
+# f_model="../pretrained/g_[0-9]_{}_{}_10.json"
+# f_weights="../pretrained/g_[0-9]_{}_{}_10.h5"
 
 for dataset in datasets:     
     # make directory
-    if not os.path.isdir(out_dir.format(dataset,discriminator)):
-        os.makedirs(out_dir.format(dataset,discriminator))
+    if not os.path.isdir(out_dir.format(dataset)):
+        os.makedirs(out_dir.format(dataset))
     
     # load the model and weights
-    with open(glob.glob(f_model.format(dataset,discriminator))[0], 'r') as f:
+    with open(f_model.format(dataset), 'r') as f:
         model=model_from_json(f.read())
-    model.load_weights(glob.glob(f_weights.format(dataset,discriminator))[0])
+    model.load_weights(f_weights.format(dataset))
     
     # iterate all images
     img_size=(640,640) if dataset=="DRIVE" else (720,720)
@@ -58,4 +58,5 @@ for dataset in datasets:
         # final_result = utils.remain_in_mask(rescaled_vessel[0,...], mask[0,...])
         cropped_vessel=utils.crop_to_original(vessel_img[...,0], ori_shape)
         final_result=utils.remain_in_mask(cropped_vessel[0,...], mask[0,...])
-        Image.fromarray(final_result.astype(np.uint8)).save(os.path.join(out_dir.format(dataset,discriminator),os.path.basename(fundus_file)))
+        png_file = os.path.splitext(fundus_file)[0] + '.png'
+        Image.fromarray(final_result.astype(np.uint8)).save(os.path.join(out_dir.format(dataset),os.path.basename(png_file)))

@@ -92,22 +92,27 @@ def discriminator_shape(n, d_out_shape):
         return (n, d_out_shape[0], d_out_shape[1], d_out_shape[2])
     return None
 
-def input2discriminator(real_img_patches, real_vessel_patches, fake_vessel_patches, d_out_shape):
+def input2discriminator(real_img_patches, real_vessel_patches, fake_vessel_patches, d_out_shape, train_real=True):
     real=np.concatenate((real_img_patches,real_vessel_patches), axis=3)
     fake=np.concatenate((real_img_patches,fake_vessel_patches), axis=3)
 
     d_x_batch=np.concatenate((real,fake), axis=0)
-
     # real : 1, fake : 0
-    d_y_batch=np.ones(discriminator_shape(d_x_batch.shape[0], d_out_shape))
-    d_y_batch[real.shape[0]:,...] = 0
-
+    if train_real:
+        d_y_batch=np.ones(discriminator_shape(d_x_batch.shape[0], d_out_shape))
+        d_y_batch[real.shape[0]:,...] = 0
+    else:
+        d_y_batch = np.zeros(discriminator_shape(d_x_batch.shape[0], d_out_shape))
+        d_y_batch[fake.shape[0]:, ...] = 1
     return d_x_batch, d_y_batch
  
-def input2gan(real_img_patches, real_vessel_patches, d_out_shape):    
+def input2gan(real_img_patches, real_vessel_patches, d_out_shape, train_real=True):
     g_x_batch=[real_img_patches,real_vessel_patches]
     # set 1 to all labels (real : 1, fake : 0)
-    g_y_batch=np.ones(discriminator_shape(real_vessel_patches.shape[0], d_out_shape))
+    if train_real:
+        g_y_batch=np.ones(discriminator_shape(real_vessel_patches.shape[0], d_out_shape))
+    else:
+        g_y_batch = np.zeros(discriminator_shape(real_vessel_patches.shape[0], d_out_shape))
     return g_x_batch, g_y_batch
     
 def print_metrics(itr, **kargs):
