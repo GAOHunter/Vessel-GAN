@@ -181,9 +181,9 @@ for n_round in range(n_rounds):
         utils.print_metrics(n_round+1, acc=acc1, loss=loss1, type='GAN')
         # save the model and weights with the best validation loss
         
-        with open(os.path.join(model_out_dir,"g_{}_{}_{}_{}.json".format(n_round,dataset,FLAGS.discriminator,FLAGS.ratio_gan2seg)),'w') as f:
+        with open(os.path.join(model_out_dir,"g_{}_{}_{}.json".format(n_round,dataset,FLAGS.ratio_gan2seg)),'w') as f:
             f.write(g.to_json())
-        g.save_weights(os.path.join(model_out_dir,"g_{}_{}_{}_{}.h5".format(n_round,dataset,FLAGS.discriminator,FLAGS.ratio_gan2seg)))
+        g.save_weights(os.path.join(model_out_dir,"g_{}_{}_{}.h5".format(n_round,dataset,FLAGS.ratio_gan2seg)))
 
     # update step sizes, learning rates
     scheduler.update_steps(n_round)
@@ -197,8 +197,8 @@ for n_round in range(n_rounds):
         generated=g.predict(test_imgs,batch_size=batch_size)
         generated=np.squeeze(generated, axis=3)
         vessels_in_mask, generated_in_mask = utils.pixel_values_in_mask(test_vessels, generated , test_masks)
-        auc_roc=utils.AUC_ROC(vessels_in_mask,generated_in_mask,os.path.join(auc_out_dir,"auc_roc_{}_{}_{}.npy".format(n_round,dataset, FLAGS.discriminator)))
-        auc_pr=utils.AUC_PR(vessels_in_mask, generated_in_mask,os.path.join(auc_out_dir,"auc_pr_{}_{}_{}.npy".format(n_round,dataset, FLAGS.discriminator)))
+        auc_roc=utils.AUC_ROC(vessels_in_mask,generated_in_mask,os.path.join(auc_out_dir,"auc_roc_{}_{}.npy".format(n_round,dataset)))
+        auc_pr=utils.AUC_PR(vessels_in_mask, generated_in_mask,os.path.join(auc_out_dir,"auc_pr_{}_{}.npy".format(n_round,dataset)))
         utils.print_metrics(n_round+1, auc_pr=auc_pr, auc_roc=auc_roc, type='TESTING')
          
         # print test images
