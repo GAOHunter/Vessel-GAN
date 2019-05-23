@@ -8,10 +8,6 @@ import numpy as np
 
 # set filepath
 datasets=["DRIVE","STARE"]
-# discriminator = "pixel"
-# discriminator = "patch1"
-# discriminator = "patch2"
-# discriminator = "image"
 fundus_dir="../data/{}/test/images/"
 mask_dir="../data/{}/test/mask/"
 # out_dir="../inference_outputs/{}"

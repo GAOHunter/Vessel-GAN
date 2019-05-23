@@ -1,6 +1,6 @@
 import numpy as np
 import time
-from model import GAN, discriminator_pixel, discriminator_image, discriminator_patch1, discriminator_patch2, generator, discriminator_dummy
+from model import GAN, discriminator, generator
 import utils
 import os
 from PIL import Image
@@ -22,12 +22,6 @@ parser.add_argument(
     '--gpu_index',
     type=str,
     help="gpu index",
-    required=True
-    )
-parser.add_argument(
-    '--discriminator',
-    type=str,
-    help="type of discriminator",
     required=True
     )
 parser.add_argument(
@@ -61,9 +55,9 @@ rounds_for_evaluation=range(n_rounds)
 print("setting dataset...")
 dataset=FLAGS.dataset
 img_size= (640,640) if dataset=='DRIVE' else (720,720) # (h,w)  [original img size => DRIVE : (584, 565), STARE : (605,700) ]
-img_out_dir="{}/segmentation_results_{}_{}".format(FLAGS.dataset,FLAGS.discriminator,FLAGS.ratio_gan2seg)
-model_out_dir="{}/model_{}_{}".format(FLAGS.dataset,FLAGS.discriminator,FLAGS.ratio_gan2seg)
-auc_out_dir="{}/auc_{}_{}".format(FLAGS.dataset,FLAGS.discriminator,FLAGS.ratio_gan2seg)
+img_out_dir="{}/segmentation_results_{}".format(FLAGS.dataset,FLAGS.ratio_gan2seg)
+model_out_dir="{}/model_{}".format(FLAGS.dataset,FLAGS.ratio_gan2seg)
+auc_out_dir="{}/auc_{}".format(FLAGS.dataset,FLAGS.ratio_gan2seg)
 train_dir="../data/{}/training/".format(dataset)
 test_dir="../data/{}/test/".format(dataset)
 if not os.path.isdir(img_out_dir):
@@ -101,21 +95,9 @@ callback = TensorBoard(log_dir)
 # g = generator(img_size, n_filters_g, callback)
 g = generator(img_size, n_filters_g, callback)
 g.summary()
-if FLAGS.discriminator=='pixel':
-    d1, d_out_shape = discriminator_pixel(img_size, n_filters_d,init_lr, callback)
-    # d2, d_out_shape = discriminator_pixel(img_size, n_filters_d, init_lr, callback)
-elif FLAGS.discriminator=='patch1':
-    d1, d_out_shape = discriminator_patch1(img_size, n_filters_d,init_lr, callback)
-    # d2, d_out_shape = discriminator_patch1(img_size, n_filters_d, init_lr, callback)
-elif FLAGS.discriminator=='patch2':
-    d1, d_out_shape = discriminator_patch2(img_size, n_filters_d,init_lr, callback)
-    # d2, d_out_shape = discriminator_patch2(img_size, n_filters_d, init_lr, callback)
-elif FLAGS.discriminator=='image':
-    d1, d_out_shape = discriminator_image(img_size, n_filters_d,init_lr, callback)
-    # d2, d_out_shape = discriminator_image(img_size, n_filters_d,init_lr, callback)
-else:
-    d1, d_out_shape = discriminator_dummy(img_size, n_filters_d,init_lr)
-    # d2, d_out_shape = discriminator_dummy(img_size, n_filters_d, init_lr)
+d1, d_out_shape = discriminator(img_size, n_filters_d,init_lr, callback)
+# d2, d_out_shape = discriminator_pixel(img_size, n_filters_d, init_lr, callback)
+
 
 d1.summary()
 # d2.summary()
